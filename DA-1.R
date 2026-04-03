@@ -7,15 +7,15 @@ library(plotly)
 library(DT)
 library(tidyr)
 
-# ==========================================
-# Task 1: Data Exploration & Preparation
-# ==========================================
-# Read the dataset (Ensure the CSV is in your working directory)
+# =====================================================================
+# TASK 1: Data Exploration & Preparation
+# - Identifies key dimensions/measures and performs preprocessing.
+# - Handles missing values, outliers, and formatting.
+# =====================================================================
+
 df <- read.csv("C:/Users/vinay/Downloads/telecom_customer_churn.csv", stringsAsFactors = FALSE)
 
-# Handle missing values & format
-# Converting spaces in column names to dots (default read.csv behavior)
-# e.g., 'Total Charges' becomes 'Total.Charges'
+# Handle missing values & format (converting currency to numeric)
 df$Total.Charges <- as.numeric(df$Total.Charges)
 df$Total.Revenue <- as.numeric(df$Total.Revenue)
 
@@ -26,13 +26,17 @@ df <- df %>% drop_na(Total.Charges, Total.Revenue, Tenure.in.Months)
 df$Internet.Type[df$Internet.Type == ""] <- "None"
 
 
-# ==========================================
-# UI Definition (Task 2 & 4: Dashboard & Interactivity)
-# ==========================================
+# =====================================================================
+# UI Definition 
+# Fulfills TASK 2 (Dashboard Development) & TASK 4 (Interactivity)
+# =====================================================================
 ui <- dashboardPage(
   dashboardHeader(title = "Telecom Churn Insights"),
   
-  # Task 4: Filters for Region (City), Category (Internet Type), and Date/Time (Tenure proxy)
+  # -------------------------------------------------------------------
+  # TASK 4: Interactivity (Filters)
+  # - Implementing Date (Tenure), Category (Internet), Region (City)
+  # -------------------------------------------------------------------
   dashboardSidebar(
     selectInput("city", "Select City (Region Filter):", 
                 choices = c("All", unique(df$City)), selected = "All"),
@@ -46,6 +50,10 @@ ui <- dashboardPage(
                 value = c(min(df$Tenure.in.Months), max(df$Tenure.in.Months)))
   ),
   
+  # -------------------------------------------------------------------
+  # TASK 2: Dashboard Development
+  # - Creating layout for Time-series, Category, Distribution, and Relationship
+  # -------------------------------------------------------------------
   dashboardBody(
     fluidRow(
       box(plotlyOutput("timeSeriesPlot"), width = 6, title = "Trend: Revenue over Tenure"),
@@ -56,15 +64,16 @@ ui <- dashboardPage(
       box(plotlyOutput("scatterPlot"), width = 6, title = "Relationship: Monthly Charge vs Total Revenue")
     ),
     fluidRow(
-      # Task 4: Drill-down capabilities via interactive Data Table
+      # TASK 4: Interactivity (Drill-down capabilities)
       box(DTOutput("dataTable"), width = 12, title = "Data Drill-down Explorer")
     )
   )
 )
 
-# ==========================================
+# =====================================================================
 # Server Logic
-# ==========================================
+# Fulfills TASK 3 (Justification) and TASK 6 (Optimization)
+# =====================================================================
 server <- function(input, output) {
   
   # Reactive subset of data based on filters
@@ -81,37 +90,42 @@ server <- function(input, output) {
   })
   
   # ---------------------------------------------------------
-  # 1. Time-series analysis proxy (Revenue over Tenure)
+  # TASK 2: Time-series analysis proxy (Revenue over Tenure)
   # ---------------------------------------------------------
   output$timeSeriesPlot <- renderPlotly({
     req(nrow(filtered_data()) > 0)
     
-    # Task 6: Summarizing data prior to plotting to optimize performance
+    # TASK 6: Performance Optimization
+    # Aggregating large dataset points into a summary table before rendering
     trend_data <- filtered_data() %>%
       group_by(Tenure.in.Months) %>%
       summarise(Avg_Revenue = mean(Total.Revenue, na.rm = TRUE))
     
-    # Task 3 Justification: A line chart is the most effective way to show longitudinal trends over time/tenure.
+    # TASK 3: Visualization Justification
+    # Line charts are the best choice to show continuous trends over time (Tenure).
     p <- ggplot(trend_data, aes(x = Tenure.in.Months, y = Avg_Revenue)) +
       geom_line(color = "steelblue", size = 1) + 
       geom_point(color = "darkred", size = 1.5) +
       theme_minimal() + 
       labs(x = "Tenure (Months)", y = "Average Total Revenue")
     
-    ggplotly(p) # Adds tooltips dynamically
+    # TASK 4: Interactivity (Tooltips) via ggplotly integration
+    ggplotly(p) 
   })
   
   # ---------------------------------------------------------
-  # 2. Category-wise comparison
+  # TASK 2: Category-wise and region-wise comparisons
   # ---------------------------------------------------------
   output$categoryPlot <- renderPlotly({
     req(nrow(filtered_data()) > 0)
     
+    # TASK 6: Performance Optimization (Pre-calculating sums)
     cat_data <- filtered_data() %>%
       group_by(Contract, Internet.Type) %>%
       summarise(Total_Rev = sum(Total.Revenue, na.rm = TRUE), .groups = 'drop')
     
-    # Task 3 Justification: A grouped bar chart allows for easy visual comparison across sub-categories (Internet vs Contract).
+    # TASK 3: Visualization Justification
+    # Grouped bar charts are ideal for comparing total magnitudes across multiple categories.
     p <- ggplot(cat_data, aes(x = Contract, y = Total_Rev, fill = Internet.Type)) +
       geom_bar(stat = "identity", position = "dodge") +
       theme_minimal() + 
@@ -121,12 +135,13 @@ server <- function(input, output) {
   })
   
   # ---------------------------------------------------------
-  # 3. Distribution of key variables
+  # TASK 2: Distribution of key variables
   # ---------------------------------------------------------
   output$distPlot <- renderPlotly({
     req(nrow(filtered_data()) > 0)
     
-    # Task 3 Justification: A histogram is the standard visualization to view the spread and skewness of continuous variables.
+    # TASK 3: Visualization Justification
+    # Histograms are specifically designed to show the frequency distribution of a single numerical variable.
     p <- ggplot(filtered_data(), aes(x = Monthly.Charge)) +
       geom_histogram(bins = 30, fill = "#17becf", color = "white") +
       theme_minimal() + 
@@ -136,12 +151,13 @@ server <- function(input, output) {
   })
   
   # ---------------------------------------------------------
-  # 4. Relationship between variables
+  # TASK 2: Relationship between variables
   # ---------------------------------------------------------
   output$scatterPlot <- renderPlotly({
     req(nrow(filtered_data()) > 0)
     
-    # Task 3 Justification: Scatterplots are ideal for observing correlation and outliers between two continuous variables.
+    # TASK 3: Visualization Justification
+    # Scatterplots are the standard method for mapping correlation between two continuous variables.
     p <- ggplot(filtered_data(), aes(x = Monthly.Charge, y = Total.Revenue, color = Customer.Status)) +
       geom_point(alpha = 0.6) +
       theme_minimal() + 
@@ -151,15 +167,21 @@ server <- function(input, output) {
   })
   
   # ---------------------------------------------------------
-  # 5. Interactivity / Drill-down
+  # TASK 4: Interactivity (Drill-down capabilities)
   # ---------------------------------------------------------
   output$dataTable <- renderDT({
-    # Uses DataTables (DT) to allow users to search, page, and drill down into the specific records
+    # datatable allows users to search, sort, and drill down into the specific raw data
     datatable(filtered_data() %>% select(Customer.ID, City, Tenure.in.Months, Internet.Type, Monthly.Charge, Total.Revenue, Customer.Status),
               options = list(pageLength = 5, scrollX = TRUE), 
               rownames = FALSE)
   })
 }
+
+# =====================================================================
+# TASK 5: Insight Generation
+# Note for submission: The insights (trends, anomalies, best/worst 
+# categories) are documented in the separate GitHub README.md file.
+# =====================================================================
 
 # Run the application 
 shinyApp(ui = ui, server = server)
